@@ -1,92 +1,59 @@
-<div align="center">
+# Marketing-Video-AI-Pipeline
 
-# 🎥 Marketing Video AI Pipeline
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 
-[![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-2.x-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
-[![Gemini](https://img.shields.io/badge/Gemini-2.5%20Pro-4285F4?style=flat-square&logo=google&logoColor=white)](https://deepmind.google/gemini)
-[![Seedance](https://img.shields.io/badge/Seedance-2.0-FF6B35?style=flat-square)](https://www.volcengine.com)
-[![Lark](https://img.shields.io/badge/Lark-Bitable-00D6B9?style=flat-square&logo=bytedance&logoColor=white)](https://open.feishu.cn)
+> **Showcase** — ~15% skeleton. Core implementation not included.
 
-**Dual-track AI short-video pipeline — marketing (e-commerce) and traffic (dance / kids) — Feishu Bitable × Gemini × Seedance 2.0**
+Feishu Bitable-triggered pipeline that turns product records into Seedance video prompts. A Flask webhook receives Bitable events, calls Gemini 2.5 Pro for multimodal analysis, produces a 12-grid storyboard, and writes Seedance prompts back to the source table.
 
-> ⚠️ **Showcase Only** — ~15% skeleton. Production prompts, Feishu credentials & rendering glue not included.
+## Stack
 
-</div>
+- Python, Flask
+- Google Gemini 2.5 Pro API
+- Seedance 2.0
+- Feishu (Lark) Bitable API
 
----
-
-## ✨ Overview
-
-A unified backend driving two distinct short-video production tracks:
-
-- **Marketing videos** — product-led, conversion-focused. 12-grid storyboard + reference images.
-- **Traffic videos** — dance & kids modes, fan-acquisition. 4-grid character + scene refs.
-
-Both tracks are triggered by Feishu Bitable automations, run on a Singapore Flask server, and write final prompt artifacts back to Feishu for manual rendering in Seedance 2.0.
-
----
-
-## 🏗️ Architecture
+## Pipeline
 
 ```
-   Feishu Bitable                  Flask Server (SG)
-  ┌────────────────┐              ┌──────────────────────┐
-  │  Marketing     │── HTTP ─────►│  /api/marketing      │
-  │  Bitable       │              │  └ MarketingPipeline │
-  └────────────────┘              ├──────────────────────┤
-  ┌────────────────┐              │  /api/traffic        │
-  │  Traffic       │── HTTP ─────►│  └ TrafficPipeline   │
-  │  Bitable       │              │     · dance mode     │
-  └────────────────┘              │     · kids mode      │
-                                  └──────────┬───────────┘
-                                             │
-                              ┌──────────────┴──────────────┐
-                              ▼                             ▼
-                      ┌───────────────┐           ┌──────────────────┐
-                      │  Gemini 2.5   │           │  Seedance prompt │
-                      │  multi-modal  │           │  generator       │
-                      └───────┬───────┘           └────────┬─────────┘
-                              │                             │
-                              └──────────────┬──────────────┘
-                                             ▼
-                              Reference images + Seedance prompts
-                                             │
-                                             ▼
-                                  Write back to Feishu
+Feishu Bitable row created/updated
+    └── Flask webhook receives event
+         └── Gemini 2.5 Pro: multimodal product analysis
+              └── 12-grid storyboard generated
+                   └── Seedance 2.0 prompts written
+                        └── Prompts written back to Bitable row
 ```
 
----
+## Usage
 
-## 📁 Structure
+```bash
+pip install -r requirements.txt
+cp .env.example .env   # fill Gemini key, Feishu credentials
+
+# Start the webhook server
+python app.py   # listens on :5000
+
+# Expose locally for Bitable to reach (dev)
+ngrok http 5000
+
+# Trigger manually with a product JSON
+python pipeline.py --product product.json --dry-run
+```
+
+## Structure
 
 ```
-marketing-video-ai-pipeline/
-├── server.py                # Flask entry
-├── pipelines/
-│   ├── marketing.py         # Marketing track
-│   └── traffic.py           # Traffic (dance / kids) track
-├── platforms/
-│   ├── gemini.py            # Gemini API client
-│   └── seedance.py          # Seedance prompt builder
-└── requirements.txt
+Marketing-Video-AI-Pipeline/
+├── app.py              # Flask webhook entry
+├── pipeline.py         # core pipeline (usable standalone)
+├── storyboard.py       # 12-grid storyboard builder
+├── seedance.py         # Seedance prompt generator
+├── feishu_client.py    # Bitable read/write wrapper
+└── .env.example
 ```
 
----
+## Feishu Webhook Setup
 
-## 🔧 Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Web Server | Flask + Gunicorn |
-| Hosting | Singapore VPS |
-| Trigger | Feishu Bitable automation |
-| LLM (multi-modal) | Gemini 2.5 Pro |
-| Video model | Seedance 2.0 (manual render) |
-| Storage | Feishu Drive / Bitable |
-
----
-
-<div align="center">
-<sub>Showcase version · Production prompts not included · For portfolio reference only</sub>
-</div>
+1. In Bitable, open Automation and add a webhook trigger.
+2. Set the URL to `https://your-host/webhook/bitable`.
+3. Grant the app token read/write access to the target base.
